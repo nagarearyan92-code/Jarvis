@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0B0F17">
+<title>Jarvis</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #0B0F17; --panel: #121826; --panel2: #182033; --line: #222C42;
+    --ink: #E8EDF7; --muted: #8C97AD; --accent: #5EE7DF; --accent2: #7C8CFF;
+    --safe-b: env(safe-area-inset-bottom); --safe-t: env(safe-area-inset-top);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 16px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  button { font: inherit; color: inherit; border: 0; cursor: pointer; }
+  .hidden { display: none !important; }
+
+  header { padding: calc(var(--safe-t) + 12px) 16px 10px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); background: linear-gradient(180deg, #0E1424, var(--bg)); }
+  .orb { width: 38px; height: 38px; border-radius: 50%; flex: none; background: radial-gradient(circle at 35% 30%, #CFFFFB, var(--accent) 35%, var(--accent2) 75%, #2B2F6B); box-shadow: 0 0 18px rgba(94,231,223,.45); transition: box-shadow .3s; }
+  .orb.busy { animation: pulse 1.4s ease-in-out infinite; }
+  .orb.off { filter: grayscale(1) brightness(.6); box-shadow: none; }
+  @keyframes pulse { 50% { box-shadow: 0 0 34px rgba(124,140,255,.85); transform: scale(1.06); } }
+  .who { flex: 1; min-width: 0; }
+  .who b { font-size: 18px; letter-spacing: .2px; }
+  .who small { display: block; color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .iconbtn { width: 38px; height: 38px; border-radius: 12px; background: var(--panel); display: grid; place-items: center; font-size: 17px; flex: none; }
+  .iconbtn.on { background: #1C3A44; color: var(--accent); }
+
+  .bar { display: flex; gap: 8px; padding: 10px 16px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--line); }
+  .bar::-webkit-scrollbar { display: none; }
+  .chip { white-space: nowrap; padding: 7px 12px; border-radius: 999px; background: var(--panel); font-size: 14px; color: var(--ink); border: 1px solid var(--line); }
+  .chip.sel { border-color: var(--accent); color: var(--accent); }
+  select.chip { appearance: none; -webkit-appearance: none; padding-right: 26px; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 14px) 52%, calc(100% - 9px) 52%; background-size: 5px 5px; background-repeat: no-repeat; }
+
+  main { flex: 1; overflow-y: auto; padding: 16px 16px 8px; display: flex; flex-direction: column; gap: 10px; overscroll-behavior: contain; }
+  .msg { max-width: 86%; padding: 10px 14px; border-radius: 18px; white-space: pre-wrap; word-wrap: break-word; }
+  .me { align-self: flex-end; background: linear-gradient(135deg, #2E3A8C, #3A4FC4); border-bottom-right-radius: 6px; }
+  .ai { align-self: flex-start; background: var(--panel); border-bottom-left-radius: 6px; }
+  .ai.fail { border: 1px solid #5A2A2A; }
+  .meta { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+  .step { align-self: flex-start; color: var(--muted); font-size: 13.5px; display: flex; gap: 8px; align-items: center; padding-left: 4px; }
+  .step::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--line); flex: none; }
+  .step.live::before { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: .3; } }
+  .card { align-self: stretch; background: var(--panel2); border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
+  .card.high { border-color: #7A4B12; background: #1E1A14; }
+  .card h4 { margin: 0 0 6px; font-size: 15.5px; }
+  .card pre { margin: 0 0 12px; white-space: pre-wrap; word-break: break-word; font: 12.5px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #C9D3E6; background: #0D1220; padding: 10px; border-radius: 10px; max-height: 180px; overflow: auto; }
+  .row { display: flex; gap: 10px; }
+  .btn { flex: 1; padding: 12px; border-radius: 12px; font-weight: 600; background: var(--panel); border: 1px solid var(--line); }
+  .btn.yes { background: #14532D; border-color: #1F7A44; }
+  .btn.no { background: #3B1717; border-color: #6B2525; }
+  .card .done { color: var(--muted); font-size: 14px; }
+  .file { display: block; text-decoration: none; color: var(--ink); }
+  .file img { max-width: 100%; border-radius: 10px; display: block; margin-top: 8px; }
+  .empty { margin: auto; text-align: center; color: var(--muted); padding: 30px 10px; }
+  .empty .orb { width: 84px; height: 84px; margin: 0 auto 18px; }
+  .empty h2 { color: var(--ink); margin: 0 0 6px; font-size: 22px; }
+  .ideas { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
+  .idea { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 11px 14px; text-align: left; font-size: 14.5px; }
+
+  footer { padding: 10px 12px calc(var(--safe-b) + 10px); border-top: 1px solid var(--line); background: var(--bg); }
+  .composer { display: flex; gap: 8px; align-items: flex-end; }
+  textarea { flex: 1; resize: none; min-height: 48px; max-height: 140px; padding: 12px 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: inherit; outline: none; }
+  textarea:focus { border-color: #34508A; }
+  .send { width: 48px; height: 48px; border-radius: 16px; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #08101C; font-size: 20px; font-weight: 800; flex: none; }
+  .send.stop { background: #7F1D1D; color: #fff; font-size: 15px; }
+  .send:disabled { opacity: .45; }
+  .mic { width: 48px; height: 48px; border-radius: 16px; background: var(--panel); font-size: 20px; flex: none; }
+  .mic.rec { background: #7F1D1D; animation: pulse 1.2s infinite; }
+  .hint { color: var(--muted); font-size: 12px; margin: 6px 4px 0; }
+
+  .pair { margin: auto; max-width: 360px; padding: 24px; text-align: center; }
+  .pair input { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: inherit; margin: 14px 0 10px; }
+  .banner { margin: 8px 16px 0; padding: 9px 12px; border-radius: 12px; background: #2A1E0B; color: #F6D59A; font-size: 13.5px; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="orb off" id="orb"></div>
+    <div class="who"><b id="name">Jarvis</b><small id="sub">Connecting…</small></div>
+    <button class="iconbtn" id="voice" title="Read replies aloud" aria-label="Read replies aloud">🔈</button>
+    <button class="iconbtn" id="newchat" title="Start a fresh conversation" aria-label="New conversation">✦</button>
+  </header>
+  <div class="bar" id="bar">
+    <select class="chip sel" id="project" aria-label="Project"></select>
+    <button class="chip" data-cmd="Take a screenshot and send it to me">📸 Screen</button>
+    <button class="chip" data-cmd="How's the laptop doing? Battery, storage and memory.">🔋 Status</button>
+    <button class="chip" data-cmd="Lock the laptop">🔒 Lock</button>
+    <button class="chip" data-cmd="What did you change last? Give me a short summary.">🕘 Recap</button>
+  </div>
+  <div class="banner hidden" id="offline">Can't reach the laptop. Is it on and connected to Tailscale?</div>
+  <main id="feed"></main>
+  <footer id="footer">
+    <div class="composer">
+      <button class="mic hidden" id="mic" aria-label="Hold to talk">🎤</button>
+      <textarea id="input" rows="1" placeholder="Tell Jarvis what to do…" enterkeyhint="send"></textarea>
+      <button class="send" id="send" aria-label="Send">↑</button>
+    </div>
+    <div class="hint" id="hint">Tip: tap the 🎤 on your keyboard to speak instead of typing.</div>
+  </footer>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+{
+  "name": "jarvis-assistant",
+  "version": "1.0.0",
+  "description": "Voice-controlled laptop assistant you talk to from your iPhone, powered by Claude",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "practice": "node src/server.js --practice",
+    "setup": "node src/setup.js",
+    "autostart": "node src/autostart.js",
+    "test": "node test/policy.test.js"
+  },
+  "author": "Aryan",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.293",
+    "qrcode-terminal": "^0.12.0",
+    "zod": "^4.6.5"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "private": true
+}
