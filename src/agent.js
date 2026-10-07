@@ -40,14 +40,14 @@ const SAFE_LAPTOP = new Set(['open_app', 'open_url', 'lock', 'set_volume', 'scre
 const RISKY = [
   [/\bgit\s+push\b/i, 'Push to GitHub'],
   [/\bgit\s+(reset\s+--hard|clean\s+-[a-z]*f|checkout\s+--\s|restore\s|rebase|filter-|branch\s+-D|push\s+.*--force)/i, 'Rewrite or discard Git work'],
-  [/\b(rm|rmdir|del|erase|rd|Remove-Item|unlink|shred)\b/i, 'Delete files'],
+  [/\b(rm|rmdir|del|erase|rd|Remove-Item|unlink|shred)\b|\s-delete\b|\bgit\s+stash\s+(drop|clear)\b/i, 'Delete files'],
   [/\b(shutdown|reboot|halt|poweroff|Stop-Computer|Restart-Computer|format|diskpart|mkfs|reg\s+(add|delete)|Set-ItemProperty|bcdedit)\b/i, 'Change system settings'],
   [/\b(sudo|runas|Start-Process\b.*-Verb\s+RunAs)\b/i, 'Run as administrator'],
   [/\b(npm|yarn|pnpm)\s+publish\b|\beas\s+(submit|update)\b/i, 'Publish something'],
   [/(curl|wget|iwr|Invoke-WebRequest)[^|]*\|\s*(sh|bash|iex|Invoke-Expression)/i, 'Run a downloaded script'],
 ];
 // Everyday developer commands that are fine to run without asking.
-const SAFE_START = /^(npm\s+(install|i|ci|run|test|ls|outdated|view)|npx\s+(expo|tsc|eslint|prettier|jest)|bunx?\s|node\s|git\s+(status|diff|log|show|add|commit|branch|checkout\s+-b|switch|fetch|pull|stash|remote\s+-v|rev-parse|ls-files)|gh\s+(run|release|pr)\s+(list|view|watch)|ls|dir|pwd|cd|cat|type|echo|head|tail|wc|grep|rg|find|which|where|mkdir|touch|sort|uniq|date|Get-ChildItem|Get-Content|Select-String|Test-Path)\b/i;
+const SAFE_START = /^(npm\s+(install|i|ci|run|test|ls|outdated|view)|npx\s+(expo|tsc|eslint|prettier|jest)|bunx?\s|node\s+(?!-e\b|--eval\b|-p\b|--print\b)|git\s+(status|diff|log|show|add|commit|branch|checkout\s+-b|switch|fetch|pull|stash|remote\s+-v|rev-parse|ls-files)|gh\s+(run|release|pr)\s+(list|view|watch)|ls|dir|pwd|cd|cat|type|echo|head|tail|wc|grep|rg|find|which|where|mkdir|touch|sort|uniq|date|Get-ChildItem|Get-Content|Select-String|Test-Path)\b/i;
 
 function inside(dir, file) {
   if (!dir || !file) return false;
@@ -57,8 +57,10 @@ function inside(dir, file) {
 
 export function classifyBash(cmd, trust) {
   for (const [re, why] of RISKY) if (re.test(cmd)) return { ask: true, why };
+  // Writing to files with > or >> (other than throwing output away) isn't an "everyday" command.
+  const writes = String(cmd).replace(/\d?>&\d|\d?>\s*(\/dev\/null|nul|\$null)\b/gi, '').includes('>');
   const parts = String(cmd).split(/&&|\|\||;|\||\n/).map(s => s.trim()).filter(Boolean);
-  if (parts.every(p => SAFE_START.test(p))) return { ask: false };
+  if (!writes && parts.every(p => SAFE_START.test(p))) return { ask: false };
   return trust === 'relaxed' ? { ask: false } : { ask: true, why: 'Run a command' };
 }
 

@@ -16,6 +16,13 @@ for (const c of ['git push origin main', 'git add . && git push', 'rm -rf node_m
 // Unknown commands ask in careful mode, run in relaxed
 assert.equal(ask('python train.py'), true);
 assert.equal(ask('python train.py', 'relaxed'), false);
+// Sneaky ones: inline code, find -delete, writing files with >
+assert.equal(ask('node -e "require(\'fs\').rmSync(\'x\')"'), true);
+assert.equal(ask('find . -name "*.log" -delete'), true);
+assert.equal(ask('echo hi > ~/.bashrc'), true);
+assert.equal(ask('git stash drop'), true);
+assert.equal(ask('npm test 2>&1'), false);
+assert.equal(ask('git status > /dev/null'), false);
 // A safe start can't hide a risky tail
 assert.equal(ask('git status; rm -rf ~'), true);
 assert.equal(ask('ls && git push'), true);
