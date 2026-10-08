@@ -56,6 +56,17 @@ async function handle(req, res) {
     return fs.createReadStream(file).pipe(res);
   }
 
+  // The phone app may be hosted elsewhere (GitHub Pages), so allow cross-origin calls.
+  // Safe because every API call still needs the secret pairing token.
+  if (p.startsWith('/api/')) {
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Max-Age', '600');
+    if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
+  }
+
   if (!authed(req, url)) {
     await new Promise(r => setTimeout(r, 800)); // slow down guessing
     return send(res, 401, { error: 'Not paired. Scan the setup code again.' });

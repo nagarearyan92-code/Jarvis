@@ -37,3 +37,15 @@ export function lanAddress() {
   }
   return 'localhost';
 }
+
+// Gives the laptop a private https address on your tailnet (https://<laptop>.<tailnet>.ts.net),
+// which the online phone app needs. Requires HTTPS to be enabled once in the Tailscale admin console.
+export async function enableTailscaleHttps(port) {
+  const ts = tailscaleCmd();
+  const out = await run(ts, ['serve', '--bg', String(port)]);
+  const st = await tailscaleAddress();
+  if (!st.ok || !st.dns) return { ok: false };
+  // Check it's really serving.
+  const status = await run(ts, ['serve', 'status']);
+  return { ok: /https:\/\//.test(status) || /https:\/\//.test(out), url: `https://${st.dns}` };
+}

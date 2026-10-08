@@ -1,7 +1,8 @@
 {
   "name": "Jarvis",
   "short_name": "Jarvis",
-  "start_url": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#0B0F17",
   "theme_color": "#0B0F17",

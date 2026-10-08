@@ -19,6 +19,7 @@ export const DEFAULTS = {
   budget: { perJobUsd: 3, monthlyUsd: 20 },
   // How much it may do without asking: 'careful' asks before any shell command that isn't on the safe list.
   trust: 'careful',
+  appUrl: '', // where the phone app is hosted (GitHub Pages)
 };
 
 export function ensureHome() {

@@ -80,6 +80,26 @@
 
   .pair { margin: auto; max-width: 360px; padding: 24px; text-align: center; }
   .pair input { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: inherit; margin: 14px 0 10px; }
+  #quick { display: contents; }
+  .overlay { position: fixed; inset: 0; background: var(--bg); z-index: 20; overflow-y: auto; padding: calc(var(--safe-t) + 14px) 18px calc(var(--safe-b) + 30px); }
+  .overlay h2 { margin: 4px 0 14px; font-size: 22px; display: flex; align-items: center; gap: 10px; }
+  .overlay h2 .grow { flex: 1; }
+  .field { display: block; margin: 0 0 14px; }
+  .field span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
+  .field input, .field textarea, .field select { width: 100%; padding: 11px 13px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: inherit; font-size: 15px; }
+  .field textarea { min-height: 110px; resize: vertical; }
+  .section { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin-bottom: 14px; }
+  .section h3 { margin: 0 0 4px; font-size: 16px; }
+  .note { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+  .ok { color: #4ADE80; } .err { color: #F87171; }
+  .task { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+  .task .top { display: flex; gap: 8px; align-items: center; }
+  .task .top b { flex: 1; }
+  .pill { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--panel2); color: var(--muted); white-space: nowrap; }
+  .pill.ready { background: #14532D; color: #BBF7D0; } .pill.working, .pill.queued { background: #1E3A5F; color: #BFDBFE; }
+  .pill.failed { background: #5A1E1E; color: #FECACA; } .pill.shipped { background: #2E2A5A; color: #C7D2FE; }
+  .sources { margin-top: 6px; font-size: 12.5px; display: flex; flex-direction: column; gap: 3px; }
+  .sources a { color: var(--accent); text-decoration: none; }
   .banner { margin: 8px 16px 0; padding: 9px 12px; border-radius: 12px; background: #2A1E0B; color: #F6D59A; font-size: 13.5px; }
 </style>
 </head>
@@ -88,17 +108,19 @@
     <div class="orb off" id="orb"></div>
     <div class="who"><b id="name">Jarvis</b><small id="sub">Connecting…</small></div>
     <button class="iconbtn" id="voice" title="Read replies aloud" aria-label="Read replies aloud">🔈</button>
-    <button class="iconbtn" id="newchat" title="Start a fresh conversation" aria-label="New conversation">✦</button>
+    <button class="iconbtn" id="settingsBtn" title="Settings" aria-label="Settings">⚙︎</button>
   </header>
   <div class="bar" id="bar">
+    <button class="chip sel" id="modeChip">📱 Phone</button>
     <select class="chip sel" id="project" aria-label="Project"></select>
-    <button class="chip" data-cmd="Take a screenshot and send it to me">📸 Screen</button>
-    <button class="chip" data-cmd="How's the laptop doing? Battery, storage and memory.">🔋 Status</button>
-    <button class="chip" data-cmd="Lock the laptop">🔒 Lock</button>
-    <button class="chip" data-cmd="What did you change last? Give me a short summary.">🕘 Recap</button>
+    <button class="chip" id="tasksChip">🛠 Tasks</button>
+    <button class="chip" id="newchat">✦ New chat</button>
+    <span id="quick"></span>
   </div>
   <div class="banner hidden" id="offline">Can't reach the laptop. Is it on and connected to Tailscale?</div>
   <main id="feed"></main>
+  <main id="tasks" class="hidden"></main>
+  <div id="settings" class="overlay hidden"></div>
   <footer id="footer">
     <div class="composer">
       <button class="mic hidden" id="mic" aria-label="Hold to talk">🎤</button>
@@ -107,6 +129,6 @@
     </div>
     <div class="hint" id="hint">Tip: tap the 🎤 on your keyboard to speak instead of typing.</div>
   </footer>
-<script src="app.js"></script>
+<script type="module" src="app.js"></script>
 </body>
 </html>
