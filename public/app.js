@@ -19,19 +19,41 @@ const save = () => ls.set('jarvis_settings', S);
 
 // Pairing links: "#laptop=<https url>&t=<code>" (from setup), or "#t=<code>" when this page is served by the laptop.
 (function pairFromLink() {
-  const h = new URLSearchParams(location.hash.slice(1));
-  const t = h.get('t');
-  if (!t) return;
+  const p = parsePairing(location.hash + ' ' + location.search);
+  const t = p.t;
+  if (!t || !/[#?&]t=/.test(location.hash + location.search)) return;
   S.laptopToken = t;
   // "lh" = the laptop's Tailscale name (plain text, so phone cameras can't mangle it).
-  let laptopUrl = h.get('lh') ? 'https://' + h.get('lh') : (h.get('laptop') || '');
-  if (laptopUrl && !/^https?:\/\//.test(laptopUrl)) laptopUrl = 'https://' + laptopUrl.replace(/^[^a-z0-9]+/i, '');
+  let laptopUrl = p.url;
   if (!laptopUrl && /^https?:$/.test(location.protocol) && !/github\.io$/.test(location.hostname)) laptopUrl = location.origin;
   S.laptopUrl = laptopUrl.replace(/\/$/, '');
   S.mode = 'auto';
   save();
   history.replaceState(null, '', location.pathname);
 })();
+// Accepts anything that contains the pairing details: the full link, just the "#lh=…&t=…" part,
+// a link with them after "?" instead of "#", percent-encoded text, or "address code" on two lines.
+function hostToUrl(h) {
+  h = String(h || '').trim().replace(/^[^a-z0-9]+/i, '').replace(/[/#?].*$/, '');
+  if (!h) return '';
+  return /:\d+$/.test(h) && !/\.ts\.net/.test(h) ? 'http://' + h : 'https://' + h;
+}
+function parsePairing(text) {
+  let s = String(text || '').trim();
+  try { if (/%[0-9a-f]{2}/i.test(s)) s = decodeURIComponent(s); } catch { /* keep as is */ }
+  const grab = k => (s.match(new RegExp(`(?:^|[#?&\\s])${k}=([^&#\\s]+)`)) || [])[1] || '';
+  const t = grab('t');
+  let url = grab('lh') ? hostToUrl(grab('lh')) : grab('laptop');
+  if (url && !/^https?:\/\//.test(url)) url = hostToUrl(url);
+  if (!url) { const m = s.match(/https?:\/\/[^/#?\s]+:\d+/); if (m) url = m[0]; }
+  if (!url) { const m = s.match(/\b[a-z0-9-]+\.[a-z0-9-]+\.ts\.net\b/i); if (m) url = 'https://' + m[0]; }
+  let tok = t;
+  if (!tok && url) { // "address" then "code" on separate lines
+    const rest = s.split(/\s+/).filter(w => !w.includes('.') && /^[A-Za-z0-9_-]{20,}$/.test(w));
+    if (rest.length) tok = rest[0];
+  }
+  return { url: url ? url.replace(/\/$/, '') : '', t: tok };
+}
 // Old laptop-only app stored just a token.
 if (!S.laptopToken && ls.get('token', '')) { S.laptopToken = ls.get('token', ''); S.laptopUrl = location.origin; save(); }
 window.addEventListener('hashchange', () => { if (/[#&]t=/.test(location.hash)) location.reload(); });
@@ -321,25 +343,39 @@ function openSettings() {
 
   const lp = section('💻 Laptop mode', S.laptopUrl ? `Paired with ${S.laptopUrl.replace(/^https?:\/\//, '')}` : 'Not paired yet.');
   // iPhone home-screen apps don't share storage with Safari, so pairing can be pasted here.
-  const pf = el('label', 'field'); pf.appendChild(el('span', null, 'Pairing link (from the laptop setup)'));
-  const pi = el('input'); pi.placeholder = 'Paste the link here'; pi.autocapitalize = 'off'; pi.autocomplete = 'off'; pi.spellcheck = false;
-  pf.appendChild(pi); lp.appendChild(pf);
-  lp.appendChild(el('p', 'note', 'To get it: point the iPhone Camera at the QR code on the laptop, then press and hold the yellow link that appears and choose Copy. Paste it here and tap Pair.'));
+  if (S.laptopUrl && S.laptopToken) {
+    // Safari and the home-screen app share the clipboard, so a paired Safari tab can hand pairing over.
+    const cb = el('button', 'btn', '📋 Copy pairing for the home-screen app');
+    cb.onclick = async () => {
+      const link = `${location.origin}${location.pathname}#lh=${S.laptopUrl.replace(/^https?:\/\//, '')}&t=${S.laptopToken}`;
+      try { await navigator.clipboard.writeText(link); cb.textContent = '✓ Copied. Now open the home-screen app, ⚙︎ Settings, paste and Pair'; }
+      catch { cb.textContent = "Couldn't copy here"; }
+    };
+    lp.appendChild(cb);
+  }
+  const pfield = (label, hint) => {
+    const f = el('label', 'field'); f.appendChild(el('span', null, label));
+    const i = el('input'); i.placeholder = hint; i.autocapitalize = 'off'; i.autocomplete = 'off'; i.spellcheck = false; i.setAttribute('autocorrect', 'off');
+    f.appendChild(i); lp.appendChild(f); return i;
+  };
+  const pi = pfield('Pairing link', 'Paste the link here');
+  lp.appendChild(el('p', 'note', 'Or type the two lines that "npm run pair" shows on the laptop:'));
+  const pAddr = pfield('Laptop address', 'e.g. yourlaptop.tailnet.ts.net');
+  const pCode = pfield('Pairing code', 'The long code');
   const prow = el('div', 'row'); const pb = el('button', 'btn yes', 'Pair'); const pr = el('span', 'note'); pr.style.alignSelf = 'center';
   pb.onclick = async () => {
-    const raw = pi.value.trim();
-    const hash = raw.includes('#') ? raw.slice(raw.indexOf('#') + 1) : raw;
-    const h = new URLSearchParams(hash);
-    let url = h.get('lh') ? 'https://' + h.get('lh') : (h.get('laptop') || '');
-    if (!url && /^https?:\/\/[^/#]+:\d+/.test(raw)) url = raw.match(/^https?:\/\/[^/#]+/)[0];
-    if (url && !/^https?:\/\//.test(url)) url = 'https://' + url.replace(/^[^a-z0-9]+/i, '');
-    const t = h.get('t');
-    if (!url || !t) { pr.textContent = "✗ That doesn't look like the pairing link."; pr.className = 'err'; return; }
+    let { url, t } = parsePairing(pi.value);
+    if (!url && pAddr.value.trim()) url = parsePairing(pAddr.value).url || hostToUrl(pAddr.value.trim());
+    if (!t && pCode.value.trim()) t = pCode.value.trim().replace(/^t=/, '').replace(/\s+/g, '');
+    if (!url || !t) {
+      pr.textContent = !t && url ? '✗ Found the laptop but not the code. Type the pairing code below.' : !t ? "✗ That doesn't look like the pairing link. Try typing the address and code instead." : '✗ Type the laptop address too.';
+      pr.className = 'err'; return;
+    }
     pr.textContent = 'Checking…'; pr.className = 'note';
     const old = { u: S.laptopUrl, t: S.laptopToken };
     S.laptopUrl = url.replace(/\/$/, ''); S.laptopToken = t;
     const st = await probeLaptop();
-    if (st && !st.unauthorized) { S.mode = 'auto'; save(); pr.textContent = `✓ Paired with ${st.host}`; pr.className = 'ok'; pi.value = ''; }
+    if (st && !st.unauthorized) { S.mode = 'auto'; save(); pr.textContent = `✓ Paired with ${st.host}`; pr.className = 'ok'; pi.value = ''; pCode.value = ''; }
     else {
       S.laptopUrl = old.u; S.laptopToken = old.t;
       pr.textContent = st?.unauthorized ? '✗ The laptop rejected that code. Run setup again for a fresh QR.' : "✗ Can't reach the laptop. Is it on, with Tailscale on here too?";

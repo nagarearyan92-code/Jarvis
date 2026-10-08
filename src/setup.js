@@ -6,9 +6,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { stdin, stdout } from 'node:process';
-import qrcode from 'qrcode-terminal';
 import { loadConfig, saveConfig, newToken } from './config.js';
-import { enableTailscaleHttps, tailscaleAddress, lanAddress } from './network.js';
+import { showPairing } from './pair.js';
 import { install } from './autostart.js';
 
 const rl = readline.createInterface({ input: stdin, output: stdout, terminal: stdin.isTTY });
@@ -98,21 +97,8 @@ async function main() {
   cfg.appUrl = (await ask('Phone app address (from the README, e.g. https://yourname.github.io/jarvis/)', cfg.appUrl || '')).trim();
   if (cfg.appUrl && !cfg.appUrl.endsWith('/')) cfg.appUrl += '/';
   saveConfig(cfg);
-  const ts = await tailscaleAddress();
-  let url;
-  if (ts.ok) {
-    const https = await enableTailscaleHttps(cfg.port);
-    if (https.ok && cfg.appUrl) url = `${cfg.appUrl}#lh=${https.url.replace(/^https:\/\//, '')}&t=${cfg.token}`;
-    else if (!https.ok) say('⚠ Couldn\'t switch on Tailscale HTTPS. In the Tailscale admin console go to DNS and enable "HTTPS Certificates", then run setup again. For now, the laptop link below works in Safari directly.');
-  }
-  if (!url) url = `http://${ts.ok ? ts.host : lanAddress()}:${cfg.port}/#t=${cfg.token}`;
-  say('\n──────────── Pair your iPhone ────────────');
-  if (!ts.ok) say('⚠ Tailscale isn\'t running, so this only works on the same Wi-Fi. Install Tailscale (see README) and run setup again for anywhere access.');
-  say('1. Open the iPhone Camera and point it at this code, then tap the link.');
-  qrcode.generate(url, { small: true });
-  say(`   (or open: ${url})`);
-  say(`2. In Safari tap Share > Add to Home Screen. Now ${cfg.name} has his own icon.`);
-  say('Keep this code private: anyone with it can control the laptop.\n');
+  await showPairing(cfg, say);
+  say('(Run "npm run pair" any time to see this again.)\n');
 
   if (await yes(`Start ${cfg.name} automatically whenever the laptop is on?`)) {
     try { say(install()); } catch (e) { say(`Couldn't set that up: ${e.message}. You can start it by hand with "npm start".`); }

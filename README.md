@@ -107,6 +107,7 @@ header `Authorization: Bearer <pairing code>`, JSON body `text` = Dictated Text)
 | Command | What it does |
 |---|---|
 | `npm run setup` | Change settings, key, projects, limits, phone app address, or make a new pairing code |
+| `npm run pair` | Show the pairing QR, laptop address and pairing code again |
 | `npm start` | Run Jarvis in this window |
 | `npm run practice` | Practice mode: pretend tasks, no AI used |
 | `npm run autostart` / `npm run autostart -- off` | Start with the laptop / stop doing that |
@@ -129,3 +130,6 @@ GitHub's free plan covers the cloud coding and app hosting for personal use.
 - **Can't reach the laptop:** is it on and awake, with Tailscale on **both** devices? Jarvis falls back to
   phone mode automatically.
 - **Pairing code changed:** scan the new QR from `npm run setup`.
+- **Home-screen app still says phone mode only:** iPhone home-screen apps don't share Safari's storage. In the paired
+  Safari tab open ⚙︎ Settings, tap **Copy pairing for the home-screen app**, then paste it in the home-screen app's
+  ⚙︎ Settings and tap **Pair**. Or run `npm run pair` and type the laptop address and pairing code there.
