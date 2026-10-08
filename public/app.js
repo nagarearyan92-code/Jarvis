@@ -23,7 +23,11 @@ const save = () => ls.set('jarvis_settings', S);
   const t = h.get('t');
   if (!t) return;
   S.laptopToken = t;
-  S.laptopUrl = (h.get('laptop') || (/^https?:$/.test(location.protocol) && !/github\.io$/.test(location.hostname) ? location.origin : '')).replace(/\/$/, '');
+  // "lh" = the laptop's Tailscale name (plain text, so phone cameras can't mangle it).
+  let laptopUrl = h.get('lh') ? 'https://' + h.get('lh') : (h.get('laptop') || '');
+  if (laptopUrl && !/^https?:\/\//.test(laptopUrl)) laptopUrl = 'https://' + laptopUrl.replace(/^[^a-z0-9]+/i, '');
+  if (!laptopUrl && /^https?:$/.test(location.protocol) && !/github\.io$/.test(location.hostname)) laptopUrl = location.origin;
+  S.laptopUrl = laptopUrl.replace(/\/$/, '');
   S.mode = 'auto';
   save();
   history.replaceState(null, '', location.pathname);

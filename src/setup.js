@@ -102,7 +102,7 @@ async function main() {
   let url;
   if (ts.ok) {
     const https = await enableTailscaleHttps(cfg.port);
-    if (https.ok && cfg.appUrl) url = `${cfg.appUrl}#laptop=${encodeURIComponent(https.url)}&t=${cfg.token}`;
+    if (https.ok && cfg.appUrl) url = `${cfg.appUrl}#lh=${https.url.replace(/^https:\/\//, '')}&t=${cfg.token}`;
     else if (!https.ok) say('⚠ Couldn\'t switch on Tailscale HTTPS. In the Tailscale admin console go to DNS and enable "HTTPS Certificates", then run setup again. For now, the laptop link below works in Safari directly.');
   }
   if (!url) url = `http://${ts.ok ? ts.host : lanAddress()}:${cfg.port}/#t=${cfg.token}`;
