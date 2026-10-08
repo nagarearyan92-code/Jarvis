@@ -319,7 +319,34 @@ function openSettings() {
   };
   gt.append(gb, gr); gh.appendChild(gt);
 
-  const lp = section('💻 Laptop mode', S.laptopUrl ? `Paired with ${S.laptopUrl}` : 'Not paired yet. Run "npm run setup" on the laptop and scan the QR code.');
+  const lp = section('💻 Laptop mode', S.laptopUrl ? `Paired with ${S.laptopUrl.replace(/^https?:\/\//, '')}` : 'Not paired yet.');
+  // iPhone home-screen apps don't share storage with Safari, so pairing can be pasted here.
+  const pf = el('label', 'field'); pf.appendChild(el('span', null, 'Pairing link (from the laptop setup)'));
+  const pi = el('input'); pi.placeholder = 'Paste the link here'; pi.autocapitalize = 'off'; pi.autocomplete = 'off'; pi.spellcheck = false;
+  pf.appendChild(pi); lp.appendChild(pf);
+  lp.appendChild(el('p', 'note', 'To get it: point the iPhone Camera at the QR code on the laptop, then press and hold the yellow link that appears and choose Copy. Paste it here and tap Pair.'));
+  const prow = el('div', 'row'); const pb = el('button', 'btn yes', 'Pair'); const pr = el('span', 'note'); pr.style.alignSelf = 'center';
+  pb.onclick = async () => {
+    const raw = pi.value.trim();
+    const hash = raw.includes('#') ? raw.slice(raw.indexOf('#') + 1) : raw;
+    const h = new URLSearchParams(hash);
+    let url = h.get('lh') ? 'https://' + h.get('lh') : (h.get('laptop') || '');
+    if (!url && /^https?:\/\/[^/#]+:\d+/.test(raw)) url = raw.match(/^https?:\/\/[^/#]+/)[0];
+    if (url && !/^https?:\/\//.test(url)) url = 'https://' + url.replace(/^[^a-z0-9]+/i, '');
+    const t = h.get('t');
+    if (!url || !t) { pr.textContent = "✗ That doesn't look like the pairing link."; pr.className = 'err'; return; }
+    pr.textContent = 'Checking…'; pr.className = 'note';
+    const old = { u: S.laptopUrl, t: S.laptopToken };
+    S.laptopUrl = url.replace(/\/$/, ''); S.laptopToken = t;
+    const st = await probeLaptop();
+    if (st && !st.unauthorized) { S.mode = 'auto'; save(); pr.textContent = `✓ Paired with ${st.host}`; pr.className = 'ok'; pi.value = ''; }
+    else {
+      S.laptopUrl = old.u; S.laptopToken = old.t;
+      pr.textContent = st?.unauthorized ? '✗ The laptop rejected that code. Run setup again for a fresh QR.' : "✗ Can't reach the laptop. Is it on, with Tailscale on here too?";
+      pr.className = 'err';
+    }
+  };
+  prow.append(pb, pr); lp.appendChild(prow);
   const mf2 = el('label', 'field'); mf2.appendChild(el('span', null, 'Which mode to use')); const md = el('select');
   [['auto', 'Automatic (laptop when it\'s reachable)'], ['phone', 'Always phone mode'], ['laptop', 'Always laptop mode']].forEach(([v, l]) => { const o = el('option', null, l); o.value = v; md.appendChild(o); });
   md.value = S.mode; md.onchange = () => { S.mode = md.value; save(); }; mf2.appendChild(md); lp.appendChild(mf2);
