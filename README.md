@@ -51,6 +51,21 @@ Gia Mia already has the workflow file (`.github/workflows/claude.yml`) and codin
 
 **Test GitHub** in Settings shows "ready" for repos that have the workflow file.
 
+### "Hey Siri, Jarvis" (phone mode, no laptop needed)
+A web app can't be woken by "Hey Siri" on its own, but a Shortcut called **Jarvis** can ask Claude and speak the answer:
+1. **Shortcuts** app > **+** > name it **Jarvis**.
+2. **Dictate Text** (Stop Listening: After Pause).
+3. **Get Contents of URL**: `https://api.anthropic.com/v1/messages`, Method **POST**.
+   Headers: `x-api-key` = your key, `anthropic-version` = `2023-06-01`, `content-type` = `application/json`.
+   Request Body **JSON**: `model` (Text) `claude-sonnet-5-5`, `max_tokens` (Number) `2000`,
+   `system` (Text) `You are Jarvis, Aryan's assistant. Answer in one to three short spoken sentences. No lists or emoji.`,
+   `messages` (Array) with one Dictionary item: `role` (Text) `user`, `content` (Text) = **Dictated Text**.
+4. **Get Dictionary Value**: Value for `content` in Contents of URL.
+5. **Repeat with Each** item in Dictionary Value, and inside it **Get Dictionary Value**: Value for `text` in Repeat Item.
+6. After End Repeat: **Combine Text** (Repeat Results, with Spaces), then **Speak Text** (Combined Text). Pick the voice in Speak Text's options.
+
+Say "Hey Siri, Jarvis", then your question. The key sits inside the Shortcut, so don't share the Shortcut.
+
 ### Using phone mode
 - "What's on in London this weekend?" / "Summarise this: <link>" / "Remember Gia is vegetarian when you suggest restaurants"
 - "Add a book diary to Gia Mia". He writes the task and asks you to **Start** it. Claude works in the cloud

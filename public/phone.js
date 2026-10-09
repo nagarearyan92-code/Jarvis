@@ -87,6 +87,40 @@ export function trimHistory(messages, turns = 12) {
   return out;
 }
 
+const isTurnStart = m => m.role === 'user' && typeof m.content === 'string';
+const textOf = m => (typeof m.content === 'string' ? m.content : (m.content || []).filter(b => b.type === 'text').map(b => b.text).join('')).trim();
+
+// Makes stored history safe and small before sending it:
+// - older turns are squeezed to just the words said (no web pages, tool calls or thinking),
+// - an unfinished turn (a tool call with no result, e.g. after a cut-off reply) is closed off,
+// so one bad turn can't break every message after it.
+export function compact(messages, keepFull = 2) {
+  const starts = messages.map((m, i) => (isTurnStart(m) ? i : -1)).filter(i => i >= 0);
+  const out = [];
+  starts.forEach((st, k) => {
+    const turn = messages.slice(st, k + 1 < starts.length ? starts[k + 1] : messages.length);
+    const full = k >= starts.length - keepFull && turnIsComplete(turn);
+    if (full) { out.push(...turn); return; }
+    const said = turn.filter(m => m.role === 'assistant').map(textOf).filter(Boolean).join('\n\n');
+    out.push({ role: 'user', content: turn[0].content });
+    out.push({ role: 'assistant', content: said || '(no reply)' });
+  });
+  return out;
+}
+function turnIsComplete(turn) {
+  for (let i = 0; i < turn.length; i++) {
+    const m = turn[i];
+    if (m.role !== 'assistant' || typeof m.content === 'string') continue;
+    const ids = m.content.filter(b => b.type === 'tool_use').map(b => b.id);
+    if (!ids.length) continue;
+    const next = turn[i + 1];
+    const got = new Set((next && Array.isArray(next.content) ? next.content : []).filter(b => b.type === 'tool_result').map(b => b.tool_use_id));
+    if (!ids.every(id => got.has(id))) return false;
+  }
+  const last = turn[turn.length - 1];
+  return last.role === 'assistant';
+}
+
 const label = (name, input = {}) => ({
   web_search: `Searching the web: ${input.query || ''}`,
   web_fetch: `Reading ${String(input.url || '').replace(/^https?:\/\//, '').slice(0, 60)}`,
@@ -104,7 +138,17 @@ export async function runTurn(history, userText, hooks) {
   const s = hooks.settings;
   const api = s.githubToken ? GH.client(s.githubToken) : null;
   const tools = [...SERVER_TOOLS, ...CLIENT_TOOLS];
-  let messages = [...trimHistory(history), { role: 'user', content: userText }];
+  let messages = [...compact(trimHistory(history)), { role: 'user', content: userText }];
+  const ask = async () => {
+    try { return await callClaude({ key: s.anthropicKey, model: s.model, system: systemPrompt(s), messages, tools }); }
+    catch (e) {
+      // Too long, or history the API won't accept: retry once with only the words of earlier turns.
+      if (!/Claude error/.test(e.message)) throw e;
+      const cur = messages.slice(messages.map(isTurnStart).lastIndexOf(true));
+      messages = [...compact(messages.slice(0, messages.length - cur.length), 0).slice(-16), ...cur];
+      return callClaude({ key: s.anthropicKey, model: s.model, system: systemPrompt(s), messages, tools });
+    }
+  };
   const needGH = () => { if (!api) throw new Error('No GitHub token in Settings, so I can\'t reach GitHub yet.'); };
 
   async function runTool(name, input) {
@@ -140,7 +184,11 @@ export async function runTurn(history, userText, hooks) {
   }
 
   for (let round = 0; round < 10; round++) {
-    const res = await callClaude({ key: s.anthropicKey, model: s.model, system: systemPrompt(s), messages, tools });
+    let res = await ask();
+    if (res.stop_reason === 'max_tokens' && !res.content.some(b => b.type === 'text' && b.text.trim())) {
+      // Ran out of room while thinking: one more go with extra room.
+      res = await callClaude({ key: s.anthropicKey, model: s.model, system: systemPrompt(s), messages, tools, maxTokens: 20000 });
+    }
     messages.push({ role: 'assistant', content: res.content });
     for (const b of res.content) {
       if (b.type === 'server_tool_use') hooks.onStep(label(b.name, b.input));

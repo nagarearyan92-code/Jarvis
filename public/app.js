@@ -13,7 +13,7 @@ const ls = {
 };
 
 // ---------- settings ----------
-const DEFAULTS = { name: 'Jarvis', owner: 'Aryan', anthropicKey: '', githubToken: '', repos: ['nagarearyan92-code/gia-foodtracker'], model: Phone.MODELS[0][0], memory: '', laptopUrl: '', laptopToken: '', speak: false, mode: 'auto', project: '' };
+const DEFAULTS = { name: 'Jarvis', owner: 'Aryan', anthropicKey: '', githubToken: '', repos: ['nagarearyan92-code/gia-foodtracker'], model: Phone.MODELS[0][0], memory: '', laptopUrl: '', laptopToken: '', speak: false, mode: 'auto', project: '', voice: '', voiceRate: 1, voicePitch: 1 };
 let S = { ...DEFAULTS, ...ls.get('jarvis_settings', {}) };
 const save = () => ls.set('jarvis_settings', S);
 
@@ -80,11 +80,27 @@ function bubble(who, text, meta, fail, sources) {
 }
 function step(label) { if (live) live.classList.remove('live'); live = add(el('div', 'step live', label)); }
 function endSteps() { if (live) live.classList.remove('live'); live = null; }
-function say(text) {
-  if (!S.speak || !('speechSynthesis' in window) || !text) return;
+// Voices: the phone's built-in ones. Better-sounding "Enhanced"/"Premium" voices can be downloaded on the
+// iPhone in Settings > Accessibility > Spoken Content > Voices, and then show up here.
+function englishVoices() {
+  if (!('speechSynthesis' in window)) return [];
+  const rank = v => (/premium/i.test(v.name) ? 0 : /enhanced/i.test(v.name) ? 1 : 2) * 10 + (/en-GB/i.test(v.lang) ? 0 : 1);
+  return speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang) && !/novelty|bells|bubbles|bad news|boing|cellos|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox|albert|bahh|fred|junior|kathy|ralph/i.test(v.name))
+    .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+}
+if ('speechSynthesis' in window) speechSynthesis.getVoices(); // starts loading the list
+function pickVoice() {
+  const list = englishVoices();
+  return list.find(v => v.name === S.voice) || list[0] || null;
+}
+function say(text, force) {
+  if ((!S.speak && !force) || !('speechSynthesis' in window) || !text) return;
   speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text.replace(/[`*_#>]/g, '').replace(/https?:\/\/\S+/g, '').slice(0, 800));
-  u.lang = 'en-GB'; speechSynthesis.speak(u);
+  const u = new SpeechSynthesisUtterance(text.replace(/[`*_#>]/g, '').replace(/https?:\/\/\S+/g, '').replace(/\p{Extended_Pictographic}/gu, '').slice(0, 800));
+  const v = pickVoice();
+  if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-GB';
+  u.rate = S.voiceRate || 1; u.pitch = S.voicePitch || 1;
+  speechSynthesis.speak(u);
 }
 
 function approvalCard({ title, detail, risk, yes = 'Approve', no = 'Deny' }, onAnswer) {
@@ -387,6 +403,27 @@ function openSettings() {
   [['auto', 'Automatic (laptop when it\'s reachable)'], ['phone', 'Always phone mode'], ['laptop', 'Always laptop mode']].forEach(([v, l]) => { const o = el('option', null, l); o.value = v; md.appendChild(o); });
   md.value = S.mode; md.onchange = () => { S.mode = md.value; save(); }; mf2.appendChild(md); lp.appendChild(mf2);
   if (S.laptopUrl) { const un = el('button', 'btn no', 'Forget laptop'); un.onclick = () => { if (confirm('Forget the paired laptop?')) { S.laptopUrl = ''; S.laptopToken = ''; save(); openSettings(); } }; lp.appendChild(un); }
+
+  const vs = section('🔊 Voice', 'How Jarvis sounds when he reads replies out loud (turn that on with the 🔈 button).');
+  const vf = el('label', 'field'); vf.appendChild(el('span', null, 'Voice')); const vsel = el('select'); vf.appendChild(vsel); vs.appendChild(vf);
+  const fillVoices = () => {
+    const list = englishVoices(); vsel.innerHTML = '';
+    if (!list.length) { const o = el('option', null, 'Default voice'); o.value = ''; vsel.appendChild(o); return; }
+    list.forEach(v => { const o = el('option', null, `${v.name} (${v.lang.replace('en-', '')})`); o.value = v.name; vsel.appendChild(o); });
+    vsel.value = pickVoice()?.name || '';
+  };
+  fillVoices(); if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = fillVoices;
+  vsel.onchange = () => { S.voice = vsel.value; save(); say('Hello, I\'m ' + S.name + '. How can I help?', true); };
+  const slider = (label, key, min, max) => {
+    const f = el('label', 'field'); f.appendChild(el('span', null, label));
+    const r = el('input'); r.type = 'range'; r.min = min; r.max = max; r.step = 0.05; r.value = S[key] || 1;
+    r.onchange = () => { S[key] = parseFloat(r.value); save(); say('This is how I sound now.', true); };
+    f.appendChild(r); vs.appendChild(f);
+  };
+  slider('Speed', 'voiceRate', 0.7, 1.4);
+  slider('Pitch', 'voicePitch', 0.7, 1.3);
+  const vt = el('button', 'btn', '▶︎ Test voice'); vt.onclick = () => say(`Hello ${S.owner}, I'm ${S.name}. How can I help?`, true); vs.appendChild(vt);
+  vs.appendChild(el('p', 'note', 'Want a nicer voice? On your iPhone go to Settings > Accessibility > Spoken Content > Voices > English, download one marked Enhanced or Premium, then reopen Jarvis and pick it here.'));
 
   const mem = section('🧠 What Jarvis knows about you', 'Used in phone mode. Edit freely; Jarvis adds to it when you say "remember…".');
   mem.appendChild(field('Memory', 'memory', 'textarea', 'e.g. I live in London. My partner is Gia. I like short answers.'));
