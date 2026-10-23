@@ -464,7 +464,7 @@ function openSettings() {
   md.value = S.mode; md.onchange = () => { S.mode = md.value; save(); }; mf2.appendChild(md); lp.appendChild(mf2);
   if (S.laptopUrl) { const un = el('button', 'btn no', 'Forget laptop'); un.onclick = () => { if (confirm('Forget the paired laptop?')) { S.laptopUrl = ''; S.laptopToken = ''; save(); openSettings(); } }; lp.appendChild(un); }
 
-  const gs = section('💌 Gifts for Gia', 'Send Gia flowers, kisses, cuddles and notes from the 💌 Gia tab. They go through a private GitHub repo that Gia Mia checks.');
+  const gs = Phone.GIFTS_ON ? section('💌 Gifts for Gia', 'Send Gia flowers, kisses, cuddles and notes from the 💌 Gia tab. They go through a private GitHub repo that Gia Mia checks.') : el('div');
   gs.appendChild(field('Private gifts repo', 'giftsRepo', 'text', 'you/gia-notes'));
   gs.appendChild(el('p', 'note', 'Your GitHub token above needs this repo too (Contents: read and write).'));
   const gk = el('label', 'field'); gk.appendChild(el('span', null, "Read-only key for Gia's phone"));

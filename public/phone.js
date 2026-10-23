@@ -7,6 +7,7 @@ export const MODELS = [
   ['claude-opus-5-5', 'Opus (smartest, slower)'],
 ];
 const API = 'https://api.anthropic.com/v1/messages';
+export const GIFTS_ON = false; // gifts for Gia are parked for now
 
 export async function callClaude({ key, model, system, messages, tools, maxTokens = 8000 }) {
   let r;
@@ -65,8 +66,7 @@ What you can do here:
 - Search the web (web_search) for anything current, and read links he pastes or pages you find (web_fetch). Mention where facts came from.
 - Remember lasting facts about him with remember (only when he asks or it's clearly useful later).
 - Run cloud coding tasks on his GitHub repos: start_coding_task, list_coding_tasks, revise_coding_task, ship_coding_task. Claude Code does the work in GitHub Actions on a branch; nothing ships until he approves. Tasks take a few minutes; he can follow them in the Tasks tab. ${s.repos.length ? `His project repos: ${s.repos.join(', ')}.` : 'He has not listed project repos yet; use list_my_repos.'}
-- Send Gia (his partner) a gift or note that pops up in her Gia Mia app: send_gift_to_gia (he confirms first).
-- You can't control his laptop or phone in this mode. For laptop things (files, apps, screenshots), tell him that needs laptop mode, which works when the laptop is on with Jarvis running.
+${GIFTS_ON ? '- Send Gia (his partner) a gift or note that pops up in her Gia Mia app: send_gift_to_gia (he confirms first).\n' : ''}- You can't control his laptop or phone in this mode. For laptop things (files, apps, screenshots), tell him that needs laptop mode, which works when the laptop is on with Jarvis running.
 
 Style: friendly, direct and concise; this is a phone and replies may be read aloud. Use short paragraphs; short lists only when they help. No tables.
 
@@ -140,7 +140,7 @@ export const stepLabel = label;
 export async function runTurn(history, userText, hooks) {
   const s = hooks.settings;
   const api = s.githubToken ? GH.client(s.githubToken) : null;
-  const tools = [...SERVER_TOOLS, ...CLIENT_TOOLS];
+  const tools = [...SERVER_TOOLS, ...CLIENT_TOOLS.filter(t => t.name !== 'send_gift_to_gia' || GIFTS_ON)];
   let messages = [...compact(trimHistory(history)), { role: 'user', content: userText }];
   const ask = async () => {
     try { return await callClaude({ key: s.anthropicKey, model: s.model, system: systemPrompt(s), messages, tools }); }

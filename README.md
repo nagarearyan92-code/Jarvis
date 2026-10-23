@@ -74,19 +74,6 @@ In the **Shortcuts** app tap **+**, name it **Jarvis**, and add:
 Say "Hey Siri, Jarvis" (works from the lock screen). For a button, iPhone **Settings > Accessibility > Touch > Back Tap >
 Double Tap > Jarvis**. Say "that's all" to finish. The key sits inside the Shortcut, so don't share it.
 
-### 💌 Gifts and notes for Gia (once, about 10 minutes)
-Send Gia flowers, kisses, cuddles, treats and little notes from the **💌 Gia** tab (or just tell Jarvis "send Gia flowers
-saying good morning"). They pop up in her Gia Mia app with a little animation.
-1. On GitHub, create a **private** repo called `gia-notes` (github.com/new, tick *Add a README*).
-2. Edit your Jarvis GitHub token (Settings > Developer settings > Fine-grained tokens): add `gia-notes` to its repositories.
-   It already has Contents read and write.
-3. Make a **second** fine-grained token just for Gia's phone: name "Gia Mia gifts", **Only select repositories:** `gia-notes`,
-   Permissions: **Contents: Read-only**, Expiration: the longest you're comfortable with (a year is fine; renew it when it ends).
-4. In Jarvis go to **⚙︎ Settings > 💌 Gifts for Gia**, check the repo name, paste that read-only token and tap
-   **Make Gia's connection code**, then **Copy code**.
-5. On Gia's phone: **Gia Mia > Me > 💌 From Aryan**, paste the code, tap **Connect**. Send the code privately or do it on her phone.
-   Never put your main GitHub token on her phone.
-
 ### Using phone mode
 - "What's on in London this weekend?" / "Summarise this: <link>" / "Remember Gia is vegetarian when you suggest restaurants"
 - "Add a book diary to Gia Mia". He writes the task and asks you to **Start** it. Claude works in the cloud
