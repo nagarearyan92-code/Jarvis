@@ -101,6 +101,13 @@
   .sources { margin-top: 6px; font-size: 12.5px; display: flex; flex-direction: column; gap: 3px; }
   .sources a { color: var(--accent); text-decoration: none; }
   .banner { margin: 8px 16px 0; padding: 9px 12px; border-radius: 12px; background: #2A1E0B; color: #F6D59A; font-size: 13.5px; }
+  .giftgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .gift { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+  .gift b { font-size: 28px; font-weight: normal; }
+  .gift.on { border-color: var(--accent); color: var(--ink); background: var(--panel2); }
+  .sent { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+  .sent b { font-size: 22px; font-weight: normal; }
+  .codebox { word-break: break-all; font: 12px/1.4 ui-monospace, Menlo, monospace; background: #0D1220; padding: 10px; border-radius: 10px; }
 </style>
 </head>
 <body>
@@ -114,12 +121,14 @@
     <button class="chip sel" id="modeChip">📱 Phone</button>
     <select class="chip sel" id="project" aria-label="Project"></select>
     <button class="chip" id="tasksChip">🛠 Tasks</button>
+    <button class="chip" id="giftsChip">💌 Gia</button>
     <button class="chip" id="newchat">✦ New chat</button>
     <span id="quick"></span>
   </div>
   <div class="banner hidden" id="offline">Can't reach the laptop. Is it on and connected to Tailscale?</div>
   <main id="feed"></main>
   <main id="tasks" class="hidden"></main>
+  <main id="gifts" class="hidden"></main>
   <div id="settings" class="overlay hidden"></div>
   <footer id="footer">
     <div class="composer">

@@ -51,6 +51,7 @@ const CLIENT_TOOLS = [
   { name: 'start_coding_task', description: 'Start a cloud coding task on one of the user\'s GitHub repos. Claude Code runs in GitHub Actions, makes the change on a separate branch and reports back; nothing ships until the user approves. The user is asked to confirm first. Write complete, self-contained instructions: the cloud coder cannot see this chat.', input_schema: { type: 'object', properties: { repo: { type: 'string', description: 'owner/name' }, title: { type: 'string', description: 'Short task title' }, instructions: { type: 'string', description: 'Full instructions with acceptance criteria' } }, required: ['repo', 'title', 'instructions'] } },
   { name: 'list_coding_tasks', description: 'List recent cloud coding tasks and their status (queued, working, ready, answered, failed, shipped, discarded).', input_schema: { type: 'object', properties: {} } },
   { name: 'revise_coding_task', description: 'Send follow-up instructions to an existing cloud coding task (e.g. changes the user asked for after seeing it).', input_schema: { type: 'object', properties: { repo: { type: 'string' }, number: { type: 'integer' }, feedback: { type: 'string' } }, required: ['repo', 'number', 'feedback'] } },
+  { name: 'send_gift_to_gia', description: "Send Gia (the user's partner) a little gift that pops up in her Gia Mia app, with an optional note. Types: flowers, kisses, cuddles, chocolate, treat, thinking (thinking of you), note. The user is asked to confirm first. Write the note in the user's voice if he asks you to word it; keep it short.", input_schema: { type: 'object', properties: { type: { type: 'string', enum: ['flowers', 'kisses', 'cuddles', 'chocolate', 'treat', 'thinking', 'note'] }, note: { type: 'string', description: 'Optional message, under 300 characters' } }, required: ['type'] } },
   { name: 'ship_coding_task', description: 'Ship a finished task: open a pull request from its branch and merge it into the main branch. For Gia Mia this builds a new app version that Gia receives. The user is asked to approve and sees what changed first.', input_schema: { type: 'object', properties: { repo: { type: 'string' }, number: { type: 'integer' } }, required: ['repo', 'number'] } },
 ];
 
@@ -64,6 +65,7 @@ What you can do here:
 - Search the web (web_search) for anything current, and read links he pastes or pages you find (web_fetch). Mention where facts came from.
 - Remember lasting facts about him with remember (only when he asks or it's clearly useful later).
 - Run cloud coding tasks on his GitHub repos: start_coding_task, list_coding_tasks, revise_coding_task, ship_coding_task. Claude Code does the work in GitHub Actions on a branch; nothing ships until he approves. Tasks take a few minutes; he can follow them in the Tasks tab. ${s.repos.length ? `His project repos: ${s.repos.join(', ')}.` : 'He has not listed project repos yet; use list_my_repos.'}
+- Send Gia (his partner) a gift or note that pops up in her Gia Mia app: send_gift_to_gia (he confirms first).
 - You can't control his laptop or phone in this mode. For laptop things (files, apps, screenshots), tell him that needs laptop mode, which works when the laptop is on with Jarvis running.
 
 Style: friendly, direct and concise; this is a phone and replies may be read aloud. Use short paragraphs; short lists only when they help. No tables.
@@ -130,6 +132,7 @@ const label = (name, input = {}) => ({
   list_coding_tasks: 'Checking coding tasks',
   revise_coding_task: `Sending changes to task #${input.number}`,
   ship_coding_task: `Shipping task #${input.number}`,
+  send_gift_to_gia: `Sending Gia ${input.type || 'a gift'}`,
 }[name] || name);
 export const stepLabel = label;
 
@@ -178,6 +181,14 @@ export async function runTurn(history, userText, hooks) {
         if (!ok) return 'The user chose not to ship it.';
         const r = await GH.shipTask(api, t.repo, t.number, t.branch, t.title);
         return `Shipped: merged PR #${r.pr}.${/gia-foodtracker/.test(t.repo) ? ' GitHub is now building the new Gia Mia version (about 15 minutes).' : ''}`;
+      }
+      case 'send_gift_to_gia': {
+        if (!s.githubToken || !s.giftsRepo) return 'Gifts are not set up yet: Settings → 💌 Gifts for Gia. Tell the user.';
+        const e = { flowers: '🌹', kisses: '💋', cuddles: '🤗', chocolate: '🍫', treat: '🍰', thinking: '💭', note: '💌' }[input.type] || '💌';
+        const ok = await hooks.approve({ title: `Send Gia ${e} ${input.type}`, detail: input.note ? `"${input.note}"` : '(no note)', risk: 'low', yes: 'Send 💗' });
+        if (!ok) return 'The user chose not to send it.';
+        await hooks.sendGift({ type: input.type, note: input.note || '' });
+        return 'Sent. It pops up in Gia Mia when she opens it, and usually as a notification within the hour.';
       }
       default: return `Unknown tool ${name}`;
     }

@@ -133,3 +133,43 @@ export async function discardTask(api, repo, number) {
 export async function reviseTask(api, repo, number, feedback) {
   await api(`/repos/${repo}/issues/${number}/comments`, { method: 'POST', body: JSON.stringify({ body: `@claude ${feedback}` }) });
 }
+
+// ---- Gifts and notes for Gia ----
+// Jarvis writes gifts to gifts.json in a private repo; Gia Mia reads it with a read-only key.
+export const GIFT_TYPES = [
+  ['flowers', '🌹', 'Flowers'], ['kisses', '💋', 'Kisses'], ['cuddles', '🤗', 'Cuddles'], ['chocolate', '🍫', 'Chocolate'],
+  ['treat', '🍰', 'A treat'], ['thinking', '💭', 'Thinking of you'], ['note', '💌', 'Just a note'],
+];
+const b64e = s => { const b = new TextEncoder().encode(s); let bin = ''; for (let i = 0; i < b.length; i += 0x8000) bin += String.fromCharCode(...b.subarray(i, i + 0x8000)); return btoa(bin); };
+const b64d = s => new TextDecoder().decode(Uint8Array.from(atob(String(s).replace(/\s/g, '')), c => c.charCodeAt(0)));
+
+export async function readGifts(api, repo) {
+  try {
+    const f = await api(`/repos/${repo}/contents/gifts.json`);
+    return { sha: f.sha, gifts: JSON.parse(b64d(f.content)).gifts || [] };
+  } catch (e) {
+    if (e.status === 404) return { sha: null, gifts: [] };
+    throw e;
+  }
+}
+
+export async function sendGift(api, repo, { type, note }) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { sha, gifts } = await readGifts(api, repo);
+    const g = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), type, note: (note || '').trim().slice(0, 300), sentAt: new Date().toISOString() };
+    try {
+      await api(`/repos/${repo}/contents/gifts.json`, {
+        method: 'PUT',
+        body: JSON.stringify({ message: `💌 ${type}`, content: b64e(JSON.stringify({ gifts: [...gifts, g].slice(-100) }, null, 1)), ...(sha ? { sha } : {}) }),
+      });
+      return g;
+    } catch (e) {
+      if (e.status === 409 && attempt === 0) continue; // changed at the same moment: try once more
+      if (e.status === 404) throw new Error(`Can't reach ${repo}. Check the repo exists and your GitHub token in Settings includes it (Contents: read and write).`);
+      throw e;
+    }
+  }
+}
+
+// The code Gia pastes into Gia Mia (Me → From Aryan): which repo, and a READ-ONLY key for it.
+export const connectionCode = (repo, readOnlyToken) => 'gm1:' + btoa(JSON.stringify({ r: repo, t: readOnlyToken.trim() }));

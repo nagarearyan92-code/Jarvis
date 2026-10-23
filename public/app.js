@@ -6,14 +6,14 @@ import * as Phone from './phone.js';
 import * as GH from './github.js';
 
 const $ = id => document.getElementById(id);
-const feed = $('feed'), input = $('input'), sendBtn = $('send'), tasksEl = $('tasks'), settingsEl = $('settings');
+const feed = $('feed'), input = $('input'), sendBtn = $('send'), tasksEl = $('tasks'), giftsEl = $('gifts'), settingsEl = $('settings');
 const ls = {
   get: (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage full or private mode */ } },
 };
 
 // ---------- settings ----------
-const DEFAULTS = { name: 'Jarvis', owner: 'Aryan', anthropicKey: '', githubToken: '', repos: ['nagarearyan92-code/gia-foodtracker'], model: Phone.MODELS[0][0], memory: '', laptopUrl: '', laptopToken: '', speak: false, mode: 'auto', project: '', voice: '', voiceRate: 1, voicePitch: 1 };
+const DEFAULTS = { name: 'Jarvis', owner: 'Aryan', anthropicKey: '', githubToken: '', repos: ['nagarearyan92-code/gia-foodtracker'], model: Phone.MODELS[0][0], memory: '', laptopUrl: '', laptopToken: '', speak: false, mode: 'auto', project: '', voice: '', voiceRate: 1, voicePitch: 1, giftsRepo: 'nagarearyan92-code/gia-notes' };
 let S = { ...DEFAULTS, ...ls.get('jarvis_settings', {}) };
 const save = () => ls.set('jarvis_settings', S);
 
@@ -226,6 +226,7 @@ async function sendPhone(text) {
       saveMemory: fact => { S.memory = (S.memory ? S.memory.trim() + '\n' : '') + '• ' + fact; save(); },
       approve: req => new Promise(res => { endSteps(); approvalCard(req, res); }),
       onTask: () => { if (!tasksEl.classList.contains('hidden')) renderTasks(); },
+      sendGift: async g => GH.sendGift(GH.client(S.githubToken), S.giftsRepo, g),
     });
     if (stopRequested) throw new Error('Stopped.');
     phoneChat = msgs;
@@ -308,13 +309,72 @@ async function renderTasks() {
 }
 let tasksTimer = null;
 function showView(v) {
-  const tasks = v === 'tasks';
+  const tasks = v === 'tasks', gifts = v === 'gifts';
   tasksEl.classList.toggle('hidden', !tasks);
-  feed.classList.toggle('hidden', tasks);
-  $('footer').classList.toggle('hidden', tasks);
+  giftsEl.classList.toggle('hidden', !gifts);
+  feed.classList.toggle('hidden', tasks || gifts);
+  $('footer').classList.toggle('hidden', tasks || gifts);
   clearInterval(tasksTimer);
   if (tasks) { renderTasks(); tasksTimer = setInterval(renderTasks, 30000); }
+  if (gifts) renderGifts();
 }
+
+// ---------- gifts and notes for Gia ----------
+let giftPick = 'flowers';
+async function renderGifts() {
+  giftsEl.innerHTML = '';
+  const head = el('div', 'row'); head.style.alignItems = 'center';
+  const back = el('button', 'chip', '‹ Chat'); back.onclick = () => showView('chat');
+  const h = el('h3', null, '💌 Send Gia something'); h.style.flex = '1'; h.style.margin = '0';
+  head.append(back, h); giftsEl.appendChild(head);
+  if (!S.githubToken || !S.giftsRepo) {
+    giftsEl.appendChild(el('p', 'note', 'Set up gifts first: ⚙︎ Settings → 💌 Gifts for Gia (it takes about 10 minutes, once).'));
+    return;
+  }
+  const card = el('div', 'card');
+  const grid = el('div', 'giftgrid');
+  const paint = () => [...grid.children].forEach(b => b.classList.toggle('on', b.dataset.t === giftPick));
+  for (const [t, e, l] of GH.GIFT_TYPES) {
+    const b = el('button', 'gift'); b.dataset.t = t; b.append(el('b', null, e), el('span', null, l));
+    b.onclick = () => { giftPick = t; paint(); };
+    grid.appendChild(b);
+  }
+  paint();
+  const note = el('textarea'); note.placeholder = 'Add a little note (optional)'; note.maxLength = 300; note.rows = 3;
+  note.style.cssText = 'width:100%;margin-top:12px;box-sizing:border-box;border-radius:12px;padding:10px;background:var(--panel);color:var(--ink);border:1px solid var(--line);font:inherit;';
+  const send = el('button', 'btn yes', 'Send 💗'); send.style.marginTop = '10px'; send.style.width = '100%';
+  const status = el('p', 'note');
+  send.onclick = async () => {
+    send.disabled = true; send.textContent = 'Sending…'; status.textContent = '';
+    try {
+      await GH.sendGift(GH.client(S.githubToken), S.giftsRepo, { type: giftPick, note: note.value });
+      note.value = ''; status.textContent = "Sent 💗 It pops up when she opens Gia Mia, and usually as a notification within the hour.";
+      loadSent();
+    } catch (e) { status.textContent = '✗ ' + e.message; }
+    send.disabled = false; send.textContent = 'Send 💗';
+  };
+  card.append(grid, note, send, status);
+  giftsEl.appendChild(card);
+  const sentBox = el('div', 'card'); sentBox.appendChild(el('h4', null, 'Recently sent'));
+  const list = el('div'); sentBox.appendChild(list); giftsEl.appendChild(sentBox);
+  async function loadSent() {
+    list.textContent = 'Loading…';
+    try {
+      const { gifts } = await GH.readGifts(GH.client(S.githubToken), S.giftsRepo);
+      list.innerHTML = '';
+      if (!gifts.length) { list.appendChild(el('p', 'note', 'Nothing sent yet.')); return; }
+      for (const g of gifts.slice(-15).reverse()) {
+        const row = el('div', 'sent');
+        const emoji = (GH.GIFT_TYPES.find(x => x[0] === g.type) || GH.GIFT_TYPES[6])[1];
+        const txt = el('div'); txt.append(el('div', null, g.note || (GH.GIFT_TYPES.find(x => x[0] === g.type) || [])[2] || g.type),
+          el('div', 'note', new Date(g.sentAt).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })));
+        row.append(el('b', null, emoji), txt); list.appendChild(row);
+      }
+    } catch (e) { list.textContent = e.message; }
+  }
+  loadSent();
+}
+$('giftsChip').onclick = () => showView(giftsEl.classList.contains('hidden') ? 'gifts' : 'chat');
 
 // ---------- settings ----------
 function openSettings() {
@@ -403,6 +463,21 @@ function openSettings() {
   [['auto', 'Automatic (laptop when it\'s reachable)'], ['phone', 'Always phone mode'], ['laptop', 'Always laptop mode']].forEach(([v, l]) => { const o = el('option', null, l); o.value = v; md.appendChild(o); });
   md.value = S.mode; md.onchange = () => { S.mode = md.value; save(); }; mf2.appendChild(md); lp.appendChild(mf2);
   if (S.laptopUrl) { const un = el('button', 'btn no', 'Forget laptop'); un.onclick = () => { if (confirm('Forget the paired laptop?')) { S.laptopUrl = ''; S.laptopToken = ''; save(); openSettings(); } }; lp.appendChild(un); }
+
+  const gs = section('💌 Gifts for Gia', 'Send Gia flowers, kisses, cuddles and notes from the 💌 Gia tab. They go through a private GitHub repo that Gia Mia checks.');
+  gs.appendChild(field('Private gifts repo', 'giftsRepo', 'text', 'you/gia-notes'));
+  gs.appendChild(el('p', 'note', 'Your GitHub token above needs this repo too (Contents: read and write).'));
+  const gk = el('label', 'field'); gk.appendChild(el('span', null, "Read-only key for Gia's phone"));
+  const gki = el('input'); gki.type = 'password'; gki.placeholder = 'github_pat_… (Contents: read-only, this repo only)'; gki.autocomplete = 'off'; gk.appendChild(gki); gs.appendChild(gk);
+  const gb2 = el('button', 'btn', "Make Gia's connection code"); const gout = el('div'); gs.append(gb2, gout);
+  gb2.onclick = () => {
+    gout.innerHTML = '';
+    if (!S.giftsRepo || !gki.value.trim()) { gout.appendChild(el('p', 'err', 'Fill in the repo and the read-only key first.')); return; }
+    const code = GH.connectionCode(S.giftsRepo, gki.value);
+    const box = el('div', 'codebox', code); const cp = el('button', 'btn', '📋 Copy code');
+    cp.onclick = async () => { try { await navigator.clipboard.writeText(code); cp.textContent = '✓ Copied'; } catch { cp.textContent = 'Select the code and copy it'; } };
+    gout.append(box, cp, el('p', 'note', "On Gia's phone: Gia Mia → Me → 💌 From Aryan → paste → Connect. Send it to her privately (e.g. WhatsApp) or do it on her phone. Never use your main GitHub token here."));
+  };
 
   const vs = section('🔊 Voice', 'How Jarvis sounds when he reads replies out loud (turn that on with the 🔈 button).');
   const vf = el('label', 'field'); vf.appendChild(el('span', null, 'Voice')); const vsel = el('select'); vf.appendChild(vsel); vs.appendChild(vf);
